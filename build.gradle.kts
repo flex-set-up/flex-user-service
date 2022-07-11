@@ -1,34 +1,90 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    id("org.springframework.boot") version "2.7.1"
-    id("io.spring.dependency-management") version "1.0.11.RELEASE"
-    kotlin("jvm") version "1.6.21"
-    kotlin("plugin.spring") version "1.6.21"
+    kotlin("jvm") version PluginVersions.JVM_VERSION
 }
 
-group = "com.example"
-version = "0.0.1-SNAPSHOT"
-java.sourceCompatibility = JavaVersion.VERSION_17
+subprojects {
+    apply {
+        plugin("org.jetbrains.kotlin.jvm")
+        version = PluginVersions.JVM_VERSION
+    }
 
-repositories {
-    mavenCentral()
-}
+    apply {
+        plugin("org.jetbrains.kotlin.kapt")
+        version = PluginVersions.KAPT_VERSION
+    }
 
-dependencies {
-    implementation("org.springframework.boot:spring-boot-starter")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-}
-
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "17"
+    dependencies {
+        implementation(Dependencies.KOTLIN_REFLECT)
+        implementation(Dependencies.KOTLIN_STDLIB)
+        implementation(Dependencies.COROUTINE_JDK)
+        implementation(Dependencies.KOTLINX_COROUTINE)
+        testImplementation(Dependencies.SPRING_TEST)
+        testImplementation(Dependencies.COROUTINE_TEST)
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+allprojects {
+    group = "com.flex"
+    version = "0.0.1-SNAPSHOT"
+
+    tasks {
+        compileKotlin {
+            kotlinOptions {
+                freeCompilerArgs = listOf("-Xjsr305=strict")
+                jvmTarget = "17"
+            }
+        }
+
+        compileJava {
+            sourceCompatibility = JavaVersion.VERSION_17.majorVersion
+        }
+
+        test {
+            useJUnitPlatform()
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+val ktlint: Configuration by configurations.creating
+
+dependencies {
+    ktlint(Dependencies.KTLINT) {
+        attributes {
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+        }
+    }
+}
+
+val outputDir = "${project.buildDir}/reports/ktlint/"
+val inputFiles = project.fileTree(mapOf("dir" to "src", "include" to "**/*.kt"))
+
+// Checking lint
+val ktlintCheck by tasks.creating(JavaExec::class) {
+    inputs.files(inputFiles)
+    outputs.dir(outputDir)
+
+    description = "Check Kotlin code style."
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args = listOf("**/*.kt", "**/*.kts")
+}
+
+// Formatting all source files
+val ktlintFormat by tasks.creating(JavaExec::class) {
+    inputs.files(inputFiles)
+    outputs.dir(outputDir)
+
+    description = "Fix Kotlin code style deviations."
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args = listOf("-F", "**/*.kt")
+    jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
+}
+
+tasks.getByName<Jar>("jar") {
+    enabled = false
 }

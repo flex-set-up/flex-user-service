@@ -1,4 +1,4 @@
-package com.example.flexuserservice
+package com.flex.flexuserservice
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
